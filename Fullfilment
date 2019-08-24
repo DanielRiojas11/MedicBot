@@ -1,0 +1,89 @@
+
+ 'use strict';
+
+ const functions = require('firebase-functions');
+ const {google} = require('googleapis');
+ const {WebhookClient} = require('dialogflow-fulfillment');
+ 
+ // Enter your calendar ID below and service account JSON below
+ const calendarId = "vjr6ecm20cg07fj84foseq2cp4@group.calendar.google.com";
+ const serviceAccount = {
+  "type": "service_account",
+  "project_id": "medicbot-sudhhg",
+  "private_key_id": "80cb2356ae15c424c0db0d73067c0c3504db2731",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQCQeJVI6Fz2GHsw\nbMdXyEz8oHdum7LLhDQXvqwAoGEZ2KJUTb6avnH0UpZFx4rqx8oAi9pBte9XSqk4\n1ukFti2TJQBaex+CCQSV7PQzMm8x46mwJgVTHTAjJOB23uJ5f19WYr905G1hqD6E\nycAUl7wmh5qBK+YnDSosXhqwOjfL77pGa42yXgIqRYutuiQgZ2I2kstFfEZpV6tQ\nDvC5g0rW/tT2GqNv1/kRY4LdHe0k81PcWF3R/Ts0uJkSS6VJzaspFLAlzPQDKNLq\nDUNMpRO9gxjiwhlYXJD990k+VM5NUH8tn8Optooac73mn/TjQtDHr8qYJ6UqM05t\n1OoLhN9rAgMBAAECggEAE3USEgwtfP2GFdsIrANvjvSjsTNqDKvlAi+tZbYz7bG2\nBymjWp78pP28fHBn/r/irlknj4ML1ZNaICwdnSXQlIk+t3DuqOpDAlgz+XM485yo\nXW95dxyuv4T3cDsLgHaNpgpNo9Yh/y2UIfk0E/HtprjLr8r0R90niWsxJ/vnSOFw\nQJicVrTZuTsbfhH2P3Og+5tcpOwz5fcbXXxDQcu3YNR4O3Deollbdyvid5nrst8Y\nHpywOxnkzRAbHKbGGZz8Vxfqx9zHbZo0fqYdjjCq+n9BR+TdG+b3pPFdxIejLvzB\nWVd1Wp6Oz17D4lU1IO3lMkU2y7I/vvs/NE2JVZ/wuQKBgQDFbYd+Ptok1bu5Qu83\nP2D5XaLZPgwZ3WWp3oUG38rpCTfOELXgr771Z/FjcLSTK/KLvv8sujqfG71jay30\nMdZ88LbNJUFodXglOa2Vp+w/2be1fY8Wvb+iglAdykM490WEAo2bb1pURAqRxEOe\nbTGVdxp6N7FEGsJHuYY9RiujYwKBgQC7VQe1J2d8kmwhXBbVOqZO4eOvI3l9RfHw\nI+R4V+L0SPXDrtIHjhTQbR9qQMsdIRPWWXMJ22om1mCWI+SEuK+z3cf4juST4YVm\n/zszTCroiRupfhvwEB5m87LO/jcmujVf5ROO4kOwmORfR3fVkLxDGPFISZPKWeEe\nncdxF2RGWQKBgDhXlLZbm4etk2BAkOI0bSldJo9W3L845r1+qnoWveKZZdqh/DW+\nEgIZAtN9I5tojFSDUnFiSD6F/Rt1R+0LmAmZ7KFJA4ybEYmWF0rBXHOwX3Qk/APi\nbOEkzVZjFaIZNzaAQAde1Ol9bYLB/wYkZWUhU2YTpLwp4s3zTTMJZoS/AoGAAcQ5\ngGHQvgH7dw0RQg19h/zlUr9448+HCoasHt5lS3xspN2/KUcTtytwQmY+BBZNw5Ww\nWgVxqNAYtRG9k+rR7VZIDnX6fdKAmYoKmt87AFpaomyIAumD/+CIbR9Ekd7rpe3Z\nE13a2Y13idZ4sNDelZtkmxPmit/yGYHPYaeg0HECgYAwJhfFWLLA0oEK23KN1/e+\nUOsg26PwW8XX9GjwX5V9n+u+lQ4A9FLEOcs03lAKKvHAvjaPM04ZzYqVRmHhImOK\nYtDNaE/9L39wQCeWNIaeKOaVpmk2Tia2vkU4DMzfClmw3KiII7y6vpMrbK9yt4qL\n5YEQXSQ3Vbm8TB82XJ1Kww==\n-----END PRIVATE KEY-----\n",
+  "client_email": "medicbot@medicbot-sudhhg.iam.gserviceaccount.com",
+  "client_id": "108380527649517345053",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/medicbot%40medicbot-sudhhg.iam.gserviceaccount.com"
+};
+ 
+ // Set up Google Calendar Service account credentials
+ const serviceAccountAuth = new google.auth.JWT({
+   email: serviceAccount.client_email,
+   key: serviceAccount.private_key,
+   scopes: 'https://www.googleapis.com/auth/calendar'
+ });
+ 
+ const calendar = google.calendar('v3');
+ process.env.DEBUG = 'dialogflow:*'; // enables lib debugging statements
+ 
+ const timeZone = 'America/Chicago';
+ const timeZoneOffset = '-05:00';
+ 
+ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, response) => {
+   const agent = new WebhookClient({ request, response });
+   console.log("Parameters", agent.parameters);
+   const motivo = agent.parameters.Motivo;
+   const name = agent.parameters.name;
+   function makeAppointment (agent) {
+     // Calculate appointment start and end datetimes (end = +1hr from start)
+     //console.log("Parameters", agent.parameters.date);
+     const dateTimeStart = new Date(Date.parse(agent.parameters.date.split('T')[0] + 'T' + agent.parameters.time.split('T')[1].split('-')[0] + timeZoneOffset));
+     const dateTimeEnd = new Date(new Date(dateTimeStart).setHours(dateTimeStart.getHours() + 0.25));
+     var options =  { month: 'long', day: 'numeric', hour: 'numeric', timeZone: timeZone };
+     const appointmentTimeString = dateTimeStart.toLocaleString('en-US', options);
+ 
+     // Check the availibility of the time, and make an appointment if there is time on the calendar
+     return createCalendarEvent(dateTimeStart, dateTimeEnd, motivo, name).then(() => {
+       agent.add(`Ok, queda agendada tu cita el ${appointmentTimeString} hasta entonces!.`+name);
+     }).catch(() => {
+       agent.add(`Lo siento, esta hora ya esta reservada intnenta con otra fecha.`);
+     });
+   }
+ 
+   let intentMap = new Map();
+   intentMap.set('Crear Cita', makeAppointment);
+   agent.handleRequest(intentMap);
+ });
+ 
+ 
+ 
+ function createCalendarEvent (dateTimeStart, dateTimeEnd, motivo, name) {
+   return new Promise((resolve, reject) => {
+     calendar.events.list({
+       auth: serviceAccountAuth, // List events for time period
+       calendarId: calendarId,
+       timeMin: dateTimeStart.toISOString(),
+       timeMax: dateTimeEnd.toISOString()
+     }, (err, calendarResponse) => {
+       // Check if there is a event already on the Calendar
+       if (err || calendarResponse.data.items.length > 0) {
+         reject(err || new Error('Requested time conflicts with another appointment'));
+       } else {
+         // Create event for the requested time period
+         calendar.events.insert({ auth: serviceAccountAuth,
+           calendarId: calendarId,
+           resource: {summary: "Cita" , description: "Motivo: "+motivo+"\nPaciente: "+name,
+             start: {dateTime: dateTimeStart},
+             end: {dateTime: dateTimeEnd}}
+         }, (err, event) => {
+           err ? reject(err) : resolve(event);
+         }
+         );
+       }
+     });
+   });
+ }
